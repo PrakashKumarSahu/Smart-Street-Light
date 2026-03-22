@@ -116,9 +116,9 @@ The monitoring interface is built with Django (backend) and React (frontend). It
 
 ## Circuit Diagram
 
-![Local_NODE](local_circuit_diagram.png)
-![LEADER_NODE](leader_circuit_diagram.png)
-![GATEWAY_NODE](gateway_circuit_diagram.png)
+![Local_NODE](media/local_circuit_diagram.png)
+![LEADER_NODE](media/leader_circuit_diagram.png)
+![GATEWAY_NODE](media/gateway_circuit_diagram.png)
 
 ---
 
