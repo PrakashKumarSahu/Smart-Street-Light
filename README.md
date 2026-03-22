@@ -1,171 +1,76 @@
-# 🌆 Smart Street Light Fault Detection System
+# Lumina — Smart Street Light Monitoring System
 
-An advanced **IoT-based Smart Street Light System** using ESP32 for **automatic control, fault detection, and real-time monitoring**.
+A distributed IoT platform for autonomous street light management, real-time fault detection, and centralized monitoring across urban infrastructure.
 
-The system combines:
-- **RS485** for communication between multiple nodes  
-- **LoRa (SX1278)** for long-range transmission  
-- **Django + React dashboard** for centralized monitoring  
+Built on ESP32, the system employs a layered communication architecture — RS485 for local mesh coordination, LoRa (SX1278) for long-range backhaul, and a Django/React dashboard for operational visibility.
 
 ---
 
-## 🚀 Features
-
-- 🌙 **Automatic Operation**
-  - Works only at night using LDR 
-  - Activates lights only when motion is detected (PIR)
-
-- ⚡ **Fault Detection**
-  - Voltage monitoring 
-  - Current monitoring  
-  - Detects abnormal behavior and failures  
-
-- 📡 **Hybrid Communication**
-  - RS485 → Local Nodes to Master Node  
-  - LoRa → Master Node to Gateway  
-
-- 📍 **GPS Integration**
-  - Location tracking using Neo-6M  
-
-- 📊 **Central Dashboard**
-  - Built with **Django + React**  
-  - Real-time monitoring and visualization  
-
-- 🔁 **Scalable System**
-  - Multiple nodes connected via RS485  
-
----
-
-## 🧠 System Architecture
+## Architecture Overview
 
 ```
-(Local Nodes A1, A2, ...)
-            ↓ RS485
-        Master Node (B)
-            ↓ LoRa
-     LoRa Gateway ESP32
-            ↓ USB
-         Computer
-            ↓ Internet
-   Django + React Server
+Local Nodes (A1, A2, ...)
+         │ RS485
+    Master Node (B)
+         │ LoRa
+   LoRa Gateway (ESP32)
+         │ USB / Serial
+      Host Machine
+         │ HTTP
+  Django + React Dashboard
 ```
 
----
-
-## 📡 Node Description
-
-### 🔹 Normal Node (Local Node A)
-- Reads sensor data  
-- Controls street light via relay  
-- Sends data to Master Node via RS485  
+The system operates in three tiers. **Local nodes** handle sensor acquisition and relay control. The **master node** aggregates local data, reads its own sensors, and transmits upstream via LoRa. The **gateway** bridges LoRa to the host machine, which runs the monitoring backend.
 
 ---
 
-### 🔸 Master Node (Special Node B)
-- Receives data from multiple nodes  
-- Reads its own sensors + GPS  
-- Sends aggregated data via LoRa  
+## Key Capabilities
+
+**Autonomous Operation** — Nodes activate only at night, determined by ambient light via LDR, and trigger illumination on motion detection via PIR sensor. No manual scheduling required.
+
+**Fault Detection** — Continuous voltage and current monitoring enables detection of lamp failures, wiring anomalies, and load deviations before they escalate.
+
+**Hybrid Communication** — RS485 provides reliable multi-drop local communication. LoRa extends coverage to distances impractical for wired alternatives, with no cellular dependency.
+
+**GPS Positioning** — Each node reports its geographic coordinates via Neo-6M, enabling precise fault localization on the dashboard map.
+
+**Scalable Topology** — Additional local nodes can be added to any RS485 segment without changes to the master or gateway firmware.
 
 ---
 
-### 📡 Gateway
-- Receives LoRa data  
-- Sends data to computer/server  
+## Node Reference
+
+### Local Node (Type A)
+
+Responsible for sensor acquisition, relay control, and data forwarding to the master node via RS485.
+
+#### Pin Configuration
+
+| Interface | Signal | GPIO |
+|-----------|--------|------|
+| UART — GPS | RX (from GPS TX) | 16 |
+| UART — GPS | TX (to GPS RX) | 17 |
+| RS485 | RO (Receive) | 26 |
+| RS485 | DI (Transmit) | 25 |
+| RS485 | RE / DE | 33 |
+| I²C — BH1750 | SDA | 21 |
+| I²C — BH1750 | SCL | 22 |
+| Sensors | PIR | 4 |
+| Sensors | Current | 32 |
+| Sensors | LDR | 34 |
+| Sensors | Voltage | 35 |
+| Output | Relay | 5 |
 
 ---
 
-## 🔌 Pin Configuration
+### Master Node (Type B)
 
----
+Aggregates data from all local nodes, reads its own sensor suite, and transmits via LoRa. Shares the same sensor and RS485 configuration as Type A, with the addition of a LoRa radio.
 
-## 🔹 NORMAL NODE (Node A)
+#### Additional Pins — LoRa SX1278
 
-### UART (GPS)
-| Device | GPIO |
+| Signal | GPIO |
 |--------|------|
-| GPS TX → ESP RX | 16 |
-| GPS RX → ESP TX | 17 |
-
-### RS485
-| Function | GPIO |
-|----------|------|
-| RO (RX) | 26 |
-| DI (TX) | 25 |
-| RE + DE | 33 |
-
-### I2C (BH1750)
-| Function | GPIO |
-|----------|------|
-| SDA | 21 |
-| SCL | 22 |
-
-### Sensors
-| Sensor | GPIO |
-|--------|------|
-| PIR | 4 |
-| Current Sensor | 32 |
-| LDR | 34 |
-| Voltage Sensor | 35 |
-
-### Relay
-| Function | GPIO |
-|----------|------|
-| Relay IN | 5 |
-
----
-
-## 🔸 MASTER NODE (Node B)
-
-### UART (GPS)
-| Device | GPIO |
-|--------|------|
-| GPS TX → ESP RX | 16 |
-| GPS RX → ESP TX | 17 |
-
-### RS485
-| Function | GPIO |
-|----------|------|
-| RO (RX) | 26 |
-| DI (TX) | 25 |
-| RE + DE | 33 |
-
-### LoRa (SX1278)
-| Function | GPIO |
-|----------|------|
-| MISO | 19 |
-| MOSI | 23 |
-| SCK | 18 |
-| NSS (CS) | 13 |
-| RST | 14 |
-| DIO0 | 27 |
-
-### I2C (BH1750)
-| Function | GPIO |
-|----------|------|
-| SDA | 21 |
-| SCL | 22 |
-
-### Sensors
-| Sensor | GPIO |
-|--------|------|
-| PIR | 4 |
-| Current Sensor | 32 |
-| LDR | 34 |
-| Voltage Sensor | 35 |
-
-### Relay
-| Function | GPIO |
-|----------|------|
-| Relay IN | 5 |
-
----
-
-## 📡 LoRa Gateway ESP32
-
-> Same LoRa configuration as Master Node
-
-| Function | GPIO |
-|----------|------|
 | MISO | 19 |
 | MOSI | 23 |
 | SCK | 18 |
@@ -175,88 +80,68 @@ The system combines:
 
 ---
 
-## ⚠️ Important Notes
+### LoRa Gateway
 
-- Avoid GPIO: **0, 2, 12, 15 (boot pins caution)**  
-- Input-only pins: **34, 35, 36, 39**  
-- Use **common GND** for all modules  
-- Use **120Ω termination resistor** for RS485  
-- Always connect **LoRa antenna**  
-- You can safely use GPIO 5 for your relay if you   add a 10k pull-up resistor to 3.3V, because this ensures the pin stays HIGH during boot (required for strapping pins), while still allowing the ESP32 to control it normally—when the ESP32 sets the pin LOW, it actively connects it to ground and easily overrides the weak pull-up, so the relay will work as expected; without the pull-up, especially with an active LOW relay module, you risk random boot failures or unstable startup, so the pull-up makes the system reliable without affecting operation.
+Receives LoRa packets from the master node and forwards them to the host machine over USB serial. Uses the same SX1278 pin mapping as the master node.
 
 ---
 
-## ⚡ Hardware Design Advice
+## Hardware Notes
 
-- Use **relay module with driver transistor**  
-- Add **flyback diode** across relay coil  
-- Prevent ESP32 reset due to voltage spikes  
+**GPIO constraints** — Avoid GPIOs 0, 2, 12, and 15 for peripheral assignment; these are strapping pins with boot-time implications. GPIOs 34, 35, 36, and 39 are input-only.
 
----
+**Relay on GPIO 5** — GPIO 5 is a strapping pin sampled at boot. Use a 10 kΩ pull-up resistor to 3.3 V to hold it HIGH during the boot sequence, preventing inadvertent relay activation. The ESP32 can still drive it LOW at runtime; the weak pull-up offers no meaningful resistance to the output driver.
 
-## 📊 Dashboard (Django + React)
+**RS485 termination** — Place a 120 Ω resistor across the A/B lines at each physical end of the bus. Omitting termination causes reflections on longer cable runs.
 
-- Real-time monitoring  
-- Fault detection alerts  
-- Sensor data visualization  
+**Relay driver** — Use a relay module with an onboard transistor driver and flyback diode. Driving an inductive load directly from an ESP32 GPIO will cause voltage spikes and eventual GPIO damage.
 
-> 📍 Add dashboard screenshots here
+**Common ground** — All modules — ESP32, RS485 transceiver, LoRa module, sensors — must share a common GND reference. Floating grounds are a frequent source of communication errors.
+
+**LoRa antenna** — Never power the SX1278 without an antenna connected. Operating without a load will damage the RF front end.
 
 ---
 
-## 🔌 Circuit Diagram
+## Dashboard
 
-> 📍 Add circuit diagram here
+The monitoring interface is built with Django (backend) and React (frontend). It provides:
 
----
+- Live sensor readings per node (voltage, current, light level, motion state)
+- Fault alerts with node identification and GPS coordinates
+- Historical data visualization and trend analysis
 
-## 🔄 Data Flow Diagram
-
-> 📍 Add architecture diagram here
-
----
-
-## 🖥️ Output / Results
-
-> 📍 Add output logs / screenshots here
+> Screenshots to be added.
 
 ---
 
-## ⚙️ Setup Instructions
+## Circuit Diagram
 
-1. Upload code to ESP32 nodes  
-2. Connect RS485 between nodes  
-3. Configure LoRa modules  
-4. Connect gateway to computer  
-5. Run Django backend  
-6. Run React frontend  
-7. Monitor system  
+![Local_NODE](local_circuit_diagram.png)
+![LEADER_NODE](leader_circuit_diagram.png)
+![GATEWAY_NODE](gateway_circuit_diagram.png)
 
 ---
 
-## 🎯 Applications
+## Setup
 
-- Smart city infrastructure  
-- Street light automation  
-- Fault detection systems  
-- Energy saving systems  
-
----
-
-## 🔮 Future Improvements
-
-- MQTT/Cloud integration  
-- AI-based fault prediction  
-- Adaptive brightness control  
+1. Flash firmware to each ESP32 node (local, master, gateway)
+2. Wire RS485 bus between local nodes and the master node; terminate both ends
+3. Verify LoRa link between master node and gateway
+4. Connect gateway to host machine via USB
+5. Start Django backend and apply migrations
+6. Start React frontend
+7. Confirm nodes appear and report data in the dashboard
 
 ---
 
-## 👨‍💻 Author
+## Roadmap
 
-ESP32-based Smart IoT System
+- MQTT integration for cloud-native deployments
+- Adaptive PWM brightness control based on ambient conditions and traffic
+- ML-based anomaly detection for predictive maintenance
 
 ---
 
-## ⭐ Support
+## Applications
 
-If you found this useful, give it a ⭐ and contribute!
+Urban street light networks, industrial site perimeter lighting, highway infrastructure monitoring, and any distributed outdoor lighting system requiring fault visibility without manual inspection.

@@ -3,132 +3,142 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <ArduinoJson.h>
 
-// -------------------- LoRa Pins --------------------
+/******** LoRa Pins ********/
 #define LORA_SS 13
 #define LORA_RST 14
 #define LORA_DIO0 27
 
-// -------------------- WiFi Credentials --------------------
-const char *ssid = "YOUR_WIFI_NAME";
-const char *password = "YOUR_WIFI_PASSWORD";
+/******** CONFIG ********/
+#define LORA_BUF 512
+#define JSON_CAP 768
+#define NO_PKT_MS 10000UL // report "no packet" after this many ms
 
-// -------------------- API Endpoint --------------------
-const char *serverName = "https://lumina-6kxk.onrender.com/api/data";
+const char *ssid = "Prakash's S23";
+const char *password = "Prakash123";
+const char *endpoint = "https://lumina-6kxk.onrender.com/api/data";
 
-// Secure client
 WiFiClientSecure client;
+unsigned long lastPkt = 0;
 
-// -------------------- Setup --------------------
+/******** HELPERS ********/
+void wifiReconnect()
+{
+    if (WiFi.status() == WL_CONNECTED)
+        return;
+    Serial.print("WiFi reconnecting");
+    WiFi.begin(ssid, password);
+    for (int i = 0; i < 20 && WiFi.status() != WL_CONNECTED; i++)
+    {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println(WiFi.status() == WL_CONNECTED ? " OK" : " FAIL");
+}
+
+void sendToAPI(const char *loraData, int rssi, bool received)
+{
+    client.setInsecure();
+
+    HTTPClient http;
+    http.begin(client, endpoint);
+    http.addHeader("Content-Type", "application/json");
+
+    StaticJsonDocument<JSON_CAP> doc;
+
+    // "s": 1 = received, 0 = not received  (saves bytes vs string "received")
+    doc["s"] = received ? 1 : 0;
+    doc["rssi"] = rssi;
+
+    if (received && loraData)
+    {
+        StaticJsonDocument<512> lDoc;
+        DeserializationError err = deserializeJson(lDoc, loraData);
+        if (!err)
+        {
+            doc["d"] = lDoc; // parsed LoRa payload
+        }
+        else
+        {
+            doc["de"] = 1; // data error: invalid json
+        }
+    }
+    else
+    {
+        doc["de"] = 2; // data error: no data
+    }
+
+    char buf[JSON_CAP];
+    size_t len = serializeJson(doc, buf);
+
+    Serial.println(buf);
+
+    int code = http.POST((uint8_t *)buf, len);
+    if (code > 0)
+    {
+        Serial.printf("HTTP %d: %s\n", code, http.getString().c_str());
+    }
+    else
+    {
+        Serial.printf("HTTP error: %d\n", code);
+    }
+
+    http.end();
+}
+
+/******** SETUP ********/
 void setup()
 {
     Serial.begin(115200);
-    delay(1000);
+    delay(500);
 
-    // 🔹 Connect to WiFi
-    Serial.print("Connecting to WiFi");
     WiFi.begin(ssid, password);
+    Serial.print("Connecting WiFi");
     while (WiFi.status() != WL_CONNECTED)
     {
         delay(500);
         Serial.print(".");
     }
+    Serial.println(" OK");
 
-    Serial.println("\nWiFi Connected");
-    Serial.print("IP Address: ");
-    Serial.println(WiFi.localIP());
-
-    // 🔹 Setup LoRa
     LoRa.setPins(LORA_SS, LORA_RST, LORA_DIO0);
-
-    if (!LoRa.begin(433E6))
+    while (!LoRa.begin(433E6))
     {
-        Serial.println("LoRa Failed. Retrying...");
-        while (!LoRa.begin(433E6))
-        {
-            Serial.println("Retrying LoRa...");
-            delay(2000);
-        }
+        Serial.println("LoRa init failed, retrying...");
+        delay(2000);
     }
 
-    Serial.println("Gateway Ready 🚀");
+    Serial.println("Gateway Ready");
+    lastPkt = millis();
 }
 
-// -------------------- Loop --------------------
+/******** LOOP ********/
 void loop()
 {
-    // 🔹 Reconnect WiFi if needed
-    if (WiFi.status() != WL_CONNECTED)
-    {
-        Serial.println("WiFi Lost! Reconnecting...");
-        WiFi.begin(ssid, password);
-        while (WiFi.status() != WL_CONNECTED)
-        {
-            delay(500);
-            Serial.print(".");
-        }
-        Serial.println("\nWiFi Reconnected");
-    }
+    wifiReconnect();
 
-    // 🔹 Check for LoRa packet
     int packetSize = LoRa.parsePacket();
+
     if (packetSize)
     {
-        String payload = "";
+        char buf[LORA_BUF];
+        size_t idx = 0;
 
-        while (LoRa.available())
-        {
-            payload += (char)LoRa.read();
-        }
+        while (LoRa.available() && idx < sizeof(buf) - 1)
+            buf[idx++] = (char)LoRa.read();
+        buf[idx] = '\0';
 
         int rssi = LoRa.packetRssi();
+        Serial.printf("LoRa RX (RSSI %d): %s\n", rssi, buf);
 
-        Serial.println("\nReceived LoRa JSON:");
-        Serial.println(payload);
-        Serial.println("RSSI: " + String(rssi));
-
-        // 🔹 Send to API
-        sendToAPI(payload, rssi);
+        sendToAPI(buf, rssi, true);
+        lastPkt = millis();
     }
-}
-
-// -------------------- Send Data to API --------------------
-void sendToAPI(String jsonPayload, int rssi)
-{
-    if (WiFi.status() == WL_CONNECTED)
+    else if (millis() - lastPkt > NO_PKT_MS)
     {
-        client.setInsecure(); // ✅ bypass SSL verification
-
-        HTTPClient http;
-        http.begin(client, serverName);
-        http.addHeader("Content-Type", "application/json");
-
-        // Wrap payload
-        String wrappedPayload = "{\"gateway_rssi\":" + String(rssi) + ",\"data\":" + jsonPayload + "}";
-
-        Serial.println("\nSending to API:");
-        Serial.println(wrappedPayload);
-
-        int httpResponseCode = http.POST(wrappedPayload);
-
-        if (httpResponseCode > 0)
-        {
-            Serial.print("HTTP Response Code: ");
-            Serial.println(httpResponseCode);
-
-            String response = http.getString();
-            Serial.println("Response: " + response);
-        }
-        else
-        {
-            Serial.print("Error sending request: ");
-            Serial.println(httpResponseCode);
-        }
-
-        http.end();
-    }
-    else
-    {
-        Serial.println("WiFi not connected. Cannot send data.");
+        Serial.println("No LoRa packet");
+        sendToAPI(nullptr, 0, false);
+        lastPkt = millis();
     }
 }
