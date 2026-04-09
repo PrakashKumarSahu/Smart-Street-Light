@@ -110,7 +110,7 @@ The monitoring interface is built with Django (backend) and React (frontend). It
 - Fault alerts with node identification and GPS coordinates
 - Historical data visualization and trend analysis
 
-> Screenshots to be added.
+![Dashboard](media/dashboard.png)
 
 ---
 
