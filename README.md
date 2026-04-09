@@ -134,7 +134,7 @@ The monitoring interface is built with Django (backend) and React (frontend). It
 
 ---
 
-## Roadmap
+## Future Enhancements
 
 - MQTT integration for cloud-native deployments
 - Adaptive PWM brightness control based on ambient conditions and traffic
