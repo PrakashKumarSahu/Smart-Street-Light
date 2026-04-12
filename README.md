@@ -1,6 +1,9 @@
 # Lumina — Smart Street Light Monitoring System
 
 Demo Video Link - https://drive.google.com/file/d/1Qy8WIt3ndhdqwWztzS9riGCTHKlPprx4/view?usp=sharing
+Web: https://lumina-6kxk.onrender.com/
+DashBoard - https://github.com/Kranthi-Swaroop/Lumina
+
 A distributed IoT platform for autonomous street light management, real-time fault detection, and centralized monitoring across urban infrastructure.
 
 Built on ESP32, the system employs a layered communication architecture — RS485 for local mesh coordination, LoRa (SX1278) for long-range backhaul, and a Django/React dashboard for operational visibility.
